@@ -21,72 +21,46 @@ const AppError = require('./utils/AppError');
 const app = express();
 const server = http.createServer(app);
 
-// ===== Allowed Origins =====
-const allowedOrigins = [
-  process.env.CORS_ORIGIN,
-  'http://localhost:3000',
-  'http://localhost:5173',
-].filter(Boolean);
-
-// ===== Socket.IO =====
+// ===== Socket.IO Setup =====
 const io = new Server(server, {
   cors: {
-    origin: allowedOrigins,
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     methods: ['GET', 'POST'],
-    credentials: true,
   },
 });
 
+// Make io available globally for service layer notifications
 global.io = io;
 
 io.on('connection', (socket) => {
   logger.debug(`Socket connected: ${socket.id}`);
+
+  // Client subscribes to their own notification room
   socket.on('subscribe', (userId) => {
     socket.join(`user:${userId}`);
+    logger.debug(`Socket ${socket.id} subscribed to user:${userId}`);
   });
+
   socket.on('disconnect', () => {
     logger.debug(`Socket disconnected: ${socket.id}`);
   });
 });
 
-// ===== Security =====
+// ===== Security Middleware =====
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: 'cross-origin' },
   })
 );
 
-// ===== CORS =====
 app.use(
   cors({
-    origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
-      console.error(`CORS blocked: ${origin}`);
-      console.error(`Allowed: ${allowedOrigins.join(', ')}`);
-      return callback(new Error(`CORS blocked for: ${origin}`), false);
-    },
+    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
   })
 );
-
-// Handle preflight
-app.options('*', cors());
-
-// Safety net headers
-app.use((req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin && allowedOrigins.includes(origin)) {
-    res.setHeader('Access-Control-Allow-Origin', origin);
-  }
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type,Authorization');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
 
 // ===== Rate Limiting =====
 const limiter = rateLimit({
@@ -94,11 +68,7 @@ const limiter = rateLimit({
   max: parseInt(process.env.RATE_LIMIT_MAX, 10) || 100,
   standardHeaders: true,
   legacyHeaders: false,
-  message: {
-    status: 429,
-    code: 'RATE_LIMIT_EXCEEDED',
-    message: 'Too many requests, please try again later.',
-  },
+  message: { status: 429, code: 'RATE_LIMIT_EXCEEDED', message: 'Too many requests, please try again later.' },
 });
 app.use('/api', limiter);
 
@@ -108,9 +78,7 @@ app.use(express.json({ limit: '10kb' }));
 app.use(express.urlencoded({ extended: true, limit: '10kb' }));
 
 if (process.env.NODE_ENV !== 'test') {
-  app.use(morgan('combined', {
-    stream: { write: (msg) => logger.info(msg.trim()) },
-  }));
+  app.use(morgan('combined', { stream: { write: (msg) => logger.info(msg.trim()) } }));
 }
 
 // ===== API Routes =====
