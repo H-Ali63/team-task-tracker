@@ -1,0 +1,361 @@
+# Auth endpoints
+paths:
+  /auth/register:
+    post:
+      summary: Register a new user
+      tags:
+        - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+            examples:
+              newOrg:
+                summary: Create a new organization
+                value:
+                  name: Alice Johnson
+                  email: alice@example.com
+                  password: secret123
+                  organizationName: Acme Corp
+              joinOrg:
+                summary: Join existing organization
+                value:
+                  name: Bob Smith
+                  email: bob@example.com
+                  password: secret123
+                  organizationId: 64a8f0b12345678901234567
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  message: { type: string }
+                  data:
+                    type: object
+                    properties:
+                      user: { $ref: '#/components/schemas/User' }
+                      accessToken: { type: string }
+                      refreshToken: { type: string }
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /auth/login:
+    post:
+      summary: Login with email and password
+      tags:
+        - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Login successful
+        '401':
+          description: Invalid credentials
+
+  /auth/refresh:
+    post:
+      summary: Refresh access token
+      tags:
+        - Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: New token pair issued
+        '401':
+          description: Invalid or expired refresh token
+
+  /auth/logout:
+    post:
+      summary: Logout and revoke refresh token
+      tags:
+        - Auth
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Logged out successfully
+
+  /auth/me:
+    get:
+      summary: Get current user profile
+      tags:
+        - Auth
+      responses:
+        '200':
+          description: Profile retrieved
+
+  /tasks:
+    get:
+      summary: List tasks with pagination and filters
+      tags:
+        - Tasks
+      parameters:
+        - in: query
+          name: page
+          schema: { type: integer, default: 1 }
+        - in: query
+          name: limit
+          schema: { type: integer, default: 10 }
+        - in: query
+          name: status
+          schema: { type: string, enum: [TODO, IN_PROGRESS, IN_REVIEW, DONE, BLOCKED] }
+        - in: query
+          name: priority
+          schema: { type: string, enum: [LOW, MEDIUM, HIGH] }
+        - in: query
+          name: assignee
+          schema: { type: string }
+        - in: query
+          name: sortBy
+          schema: { type: string, default: createdAt }
+        - in: query
+          name: sortOrder
+          schema: { type: string, enum: [asc, desc], default: desc }
+      responses:
+        '200':
+          description: Tasks retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      tasks:
+                        type: array
+                        items: { $ref: '#/components/schemas/Task' }
+                      pagination: { $ref: '#/components/schemas/Pagination' }
+
+    post:
+      summary: Create a new task (ADMIN, MANAGER)
+      tags:
+        - Tasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CreateTaskRequest' }
+      responses:
+        '201':
+          description: Task created
+        '403':
+          description: Forbidden — insufficient role
+
+  /tasks/{id}:
+    get:
+      summary: Get task by ID
+      tags:
+        - Tasks
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Task retrieved
+        '404':
+          description: Task not found
+
+    put:
+      summary: Update task details (ADMIN, MANAGER)
+      tags:
+        - Tasks
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title: { type: string }
+                description: { type: string }
+                priority: { type: string, enum: [LOW, MEDIUM, HIGH] }
+                assignee: { type: string }
+                dueDate: { type: string, format: date-time }
+      responses:
+        '200':
+          description: Task updated
+
+    delete:
+      summary: Delete task (ADMIN, MANAGER)
+      tags:
+        - Tasks
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Task deleted
+
+  /tasks/{id}/status:
+    patch:
+      summary: Update task status (enforced transitions)
+      tags:
+        - Tasks
+      description: |
+        Status transitions are strictly enforced server-side:
+        - TODO → IN_PROGRESS or BLOCKED
+        - IN_PROGRESS → IN_REVIEW or BLOCKED
+        - IN_REVIEW → DONE or BLOCKED
+        - DONE → (terminal, no transitions)
+        
+        Only the task's assignee or a MANAGER/ADMIN can change status.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [TODO, IN_PROGRESS, IN_REVIEW, DONE, BLOCKED]
+      responses:
+        '200':
+          description: Status updated
+        '400':
+          description: Invalid status transition
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+
+  /tasks/analytics:
+    get:
+      summary: Get task analytics (ADMIN, MANAGER)
+      tags:
+        - Tasks
+      responses:
+        '200':
+          description: Analytics data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      overdueByUser:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            assigneeId: { type: string }
+                            name: { type: string }
+                            overdueCount: { type: integer }
+                      avgCompletionHours: { type: number }
+                      totalCompleted: { type: integer }
+
+  /users:
+    get:
+      summary: List users in organization (ADMIN, MANAGER)
+      tags:
+        - Users
+      responses:
+        '200':
+          description: Users retrieved
+
+  /users/profile:
+    get:
+      summary: Get current user profile
+      tags:
+        - Users
+      responses:
+        '200':
+          description: Profile retrieved
+
+  /users/{id}:
+    get:
+      summary: Get user by ID (ADMIN, MANAGER)
+      tags:
+        - Users
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User retrieved
+
+    delete:
+      summary: Deactivate user (ADMIN only)
+      tags:
+        - Users
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: User deactivated
+
+  /users/{id}/role:
+    patch:
+      summary: Update user role (ADMIN only)
+      tags:
+        - Users
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [role]
+              properties:
+                role:
+                  type: string
+                  enum: [ADMIN, MANAGER, MEMBER]
+      responses:
+        '200':
+          description: Role updated
