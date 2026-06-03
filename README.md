@@ -73,7 +73,10 @@ Set these environment variables in the hosting dashboards:
 **Render backend**
 ```bash
 CORS_ORIGINS=https://your-frontend.vercel.app
+REDIS_URL=redis://default:password@red-example:6379
 ```
+
+Use `REDIS_URL` for Render Redis connection strings. `REDIS_HOST` should only be used when you have a plain hostname such as `redis`.
 
 Use a comma-separated list if you also want local or preview origins:
 
