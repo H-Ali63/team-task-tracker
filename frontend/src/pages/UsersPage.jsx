@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  UserCircleIcon,
+  BuildingOffice2Icon,
+  ClipboardDocumentIcon,
   ShieldCheckIcon,
   NoSymbolIcon,
 } from '@heroicons/react/24/outline';
@@ -16,8 +17,14 @@ import { formatDate, getErrorMessage, ROLES } from '../utils/constants';
 
 const ROLE_OPTIONS = Object.values(ROLES);
 
+const getOrganizationId = (organizationId) => {
+  if (!organizationId) return '';
+  if (typeof organizationId === 'string') return organizationId;
+  return organizationId._id || organizationId.id || '';
+};
+
 export const UsersPage = () => {
-  const { user: currentUser } = useAuthStore();
+  const { user: currentUser, updateUser } = useAuthStore();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [roleTarget, setRoleTarget] = useState(null); // { user, newRole }
@@ -25,6 +32,8 @@ export const UsersPage = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [roleModalOpen, setRoleModalOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState('');
+  const organizationId = getOrganizationId(currentUser?.organizationId);
+  const isAdmin = currentUser?.role === ROLES.ADMIN;
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -39,6 +48,26 @@ export const UsersPage = () => {
   }, []);
 
   useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  useEffect(() => {
+    if (!isAdmin || organizationId) return;
+
+    userService
+      .getProfile()
+      .then((profile) => updateUser(profile))
+      .catch(() => {});
+  }, [isAdmin, organizationId, updateUser]);
+
+  const handleCopyOrganizationId = async () => {
+    if (!organizationId) return;
+
+    try {
+      await navigator.clipboard.writeText(organizationId);
+      toast.success('Organization ID copied');
+    } catch {
+      toast.error('Unable to copy organization ID');
+    }
+  };
 
   const openRoleModal = (user) => {
     setRoleTarget(user);
@@ -91,6 +120,40 @@ export const UsersPage = () => {
           </p>
         </div>
       </div>
+
+      {isAdmin && (
+        <div className="card p-5">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-lg bg-primary-100 flex items-center justify-center flex-shrink-0">
+                <BuildingOffice2Icon className="h-5 w-5 text-primary-700" />
+              </div>
+              <div className="min-w-0">
+                <h3 className="text-sm font-semibold text-slate-900">Admin Profile</h3>
+                <p className="text-sm text-slate-500">Invite teammates with this organization ID.</p>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch">
+              <div className="min-w-0 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-xs font-medium text-slate-500">Organization ID</p>
+                <p className="font-mono text-sm text-slate-900 break-all">
+                  {organizationId || 'Unavailable'}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCopyOrganizationId}
+                disabled={!organizationId}
+                className="btn-secondary gap-2 whitespace-nowrap"
+              >
+                <ClipboardDocumentIcon className="h-4 w-4" />
+                Copy
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Table */}
       <div className="card overflow-hidden">
