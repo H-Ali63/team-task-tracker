@@ -18,14 +18,94 @@ const swaggerSpec = require('./swagger/swaggerConfig');
 const logger = require('./utils/logger');
 const AppError = require('./utils/AppError');
 
+const DEFAULT_CORS_ORIGINS = [
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+];
+
+const normalizeOrigin = (origin) => {
+  if (!origin) return '';
+
+  const trimmedOrigin = origin.trim();
+  if (trimmedOrigin === '*') return trimmedOrigin;
+
+  return trimmedOrigin.replace(/\/+$/, '');
+};
+
+const parseCorsOrigins = () => {
+  const configuredOrigins = [
+    process.env.CORS_ORIGINS,
+    process.env.CORS_ORIGIN,
+    process.env.FRONTEND_URL,
+  ]
+    .filter(Boolean)
+    .flatMap((originList) => originList.split(','))
+    .map(normalizeOrigin)
+    .filter(Boolean);
+
+  return configuredOrigins.length > 0 ? configuredOrigins : DEFAULT_CORS_ORIGINS;
+};
+
+const wildcardToRegExp = (originPattern) => {
+  const escapedPattern = originPattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(`^${escapedPattern}$`);
+};
+
+const allowedOrigins = parseCorsOrigins();
+const originMatchers = allowedOrigins.map((allowedOrigin) => {
+  if (allowedOrigin === '*') {
+    return () => true;
+  }
+
+  if (allowedOrigin.includes('*')) {
+    const wildcardMatcher = wildcardToRegExp(allowedOrigin);
+    return (origin) => wildcardMatcher.test(origin);
+  }
+
+  return (origin) => origin === allowedOrigin;
+});
+
+const isCorsOriginAllowed = (origin) => {
+  if (!origin) return true;
+
+  const normalizedOrigin = normalizeOrigin(origin);
+  return originMatchers.some((matchesOrigin) => matchesOrigin(normalizedOrigin));
+};
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (isCorsOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+
+    logger.warn(`Blocked CORS origin: ${origin}`);
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+};
+
 const app = express();
 const server = http.createServer(app);
 
 // ===== Socket.IO Setup =====
 const io = new Server(server, {
   cors: {
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
+    ...corsOptions,
     methods: ['GET', 'POST'],
+  },
+  allowRequest: (req, callback) => {
+    const origin = req.headers.origin;
+
+    if (isCorsOriginAllowed(origin)) {
+      return callback(null, true);
+    }
+
+    logger.warn(`Blocked Socket.IO origin: ${origin}`);
+    return callback(null, false);
   },
 });
 
@@ -54,12 +134,7 @@ app.use(
 );
 
 app.use(
-  cors({
-    origin: process.env.CORS_ORIGIN || 'http://localhost:3000',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
-  })
+  cors(corsOptions)
 );
 
 // ===== Rate Limiting =====
@@ -123,6 +198,7 @@ const startServer = async () => {
 
     server.listen(PORT, () => {
       logger.info(`Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
+      logger.info(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
       logger.info(`API Docs: http://localhost:${PORT}/api/docs`);
     });
   } catch (error) {

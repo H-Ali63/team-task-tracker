@@ -66,6 +66,26 @@ npm install
 npm run dev
 ```
 
+### Deploy on Render + Vercel
+
+Set these environment variables in the hosting dashboards:
+
+**Render backend**
+```bash
+CORS_ORIGINS=https://your-frontend.vercel.app
+```
+
+Use a comma-separated list if you also want local or preview origins:
+
+```bash
+CORS_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app,https://*.vercel.app
+```
+
+**Vercel frontend**
+```bash
+VITE_API_URL=https://your-backend.onrender.com/api/v1
+```
+
 ---
 
 ## Architecture Overview

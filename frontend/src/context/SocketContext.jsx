@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useRef } from "react";
 import { io } from "socket.io-client";
 import toast from "react-hot-toast";
 import { useAuthStore } from "../store/authStore";
+import { API_SERVER_URL } from "../api/config";
 
 const SocketContext = createContext(null);
 
@@ -13,13 +14,10 @@ export const SocketProvider = ({ children }) => {
     if (!isAuthenticated || !user) return;
 
     // Connect socket
-    socketRef.current = io(
-      import.meta.env.VITE_API_URL?.replace("/api/v1", "") || "/",
-      {
-        transports: ["websocket", "polling"],
-        reconnectionAttempts: 5,
-      },
-    );
+    socketRef.current = io(API_SERVER_URL, {
+      transports: ["websocket", "polling"],
+      reconnectionAttempts: 5,
+    });
 
     socketRef.current.on("connect", () => {
       // Subscribe to personal notification room

@@ -1,8 +1,9 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
+import { API_BASE_URL } from './config';
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
   timeout: 15000,
 });
@@ -70,7 +71,14 @@ api.interceptors.response.use(
       }
 
       try {
-        const res = await axios.post('/api/v1/auth/refresh', { refreshToken });
+        const res = await axios.post(
+          `${API_BASE_URL}/auth/refresh`,
+          { refreshToken },
+          {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 15000,
+          }
+        );
         const { accessToken, refreshToken: newRefreshToken } = res.data.data;
 
         useAuthStore.getState().setTokens(accessToken, newRefreshToken);
