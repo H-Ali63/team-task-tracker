@@ -72,7 +72,7 @@ Set these environment variables in the hosting dashboards:
 
 **Render backend**
 ```bash
-CORS_ORIGINS=https://your-frontend.vercel.app
+CORS_ORIGINS=https://team-task-trackers.vercel.app
 REDIS_URL=redis://default:password@red-example:6379
 ```
 
@@ -81,12 +81,12 @@ Use `REDIS_URL` for Render Redis connection strings. `REDIS_HOST` should only be
 Use a comma-separated list if you also want local or preview origins:
 
 ```bash
-CORS_ORIGINS=http://localhost:3000,https://your-frontend.vercel.app,https://*.vercel.app
+CORS_ORIGINS=http://localhost:3000,https://team-task-trackers.vercel.app,https://*.vercel.app
 ```
 
 **Vercel frontend**
 ```bash
-VITE_API_URL=https://your-backend.onrender.com/api/v1
+VITE_API_URL=https://team-task-tracker-xiue.onrender.com/api/v1
 ```
 
 ---
