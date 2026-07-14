@@ -1,5 +1,54 @@
 const jwt = require('jsonwebtoken');
 
+const DURATION_UNITS_IN_SECONDS = {
+  s: 1,
+  m: 60,
+  h: 60 * 60,
+  d: 60 * 60 * 24,
+};
+
+const parseDurationToSeconds = (duration, fallbackSeconds) => {
+  if (typeof duration === 'number' && Number.isFinite(duration)) {
+    return duration;
+  }
+
+  if (typeof duration !== 'string') {
+    return fallbackSeconds;
+  }
+
+  const normalizedDuration = duration.trim();
+
+  if (!normalizedDuration) {
+    return fallbackSeconds;
+  }
+
+  const directNumber = Number(normalizedDuration);
+  if (Number.isFinite(directNumber)) {
+    return directNumber;
+  }
+
+  const match = normalizedDuration.match(/^(\d+)([smhd])$/i);
+  if (!match) {
+    return fallbackSeconds;
+  }
+
+  const value = Number(match[1]);
+  const unit = match[2].toLowerCase();
+  const unitSeconds = DURATION_UNITS_IN_SECONDS[unit];
+
+  if (!Number.isFinite(value) || !unitSeconds) {
+    return fallbackSeconds;
+  }
+
+  return value * unitSeconds;
+};
+
+const getRefreshTokenExpiryDate = () => {
+  const expiresIn = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
+  const expiresInSeconds = parseDurationToSeconds(expiresIn, 7 * 24 * 60 * 60);
+  return new Date(Date.now() + expiresInSeconds * 1000);
+};
+
 /**
  * Generates a short-lived access token.
  */
@@ -37,4 +86,6 @@ module.exports = {
   generateRefreshToken,
   verifyAccessToken,
   verifyRefreshToken,
+  getRefreshTokenExpiryDate,
+  parseDurationToSeconds,
 };

@@ -1,14 +1,20 @@
 import React from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../store/authStore';
+import { isTokenExpired } from '../utils/session';
 
 /**
  * Protects routes that require authentication.
  * Redirects to /login if not authenticated, preserving the intended destination.
  */
 export const ProtectedRoute = () => {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, refreshToken, logout } = useAuthStore();
   const location = useLocation();
+
+  if (isAuthenticated && isTokenExpired(refreshToken)) {
+    logout();
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;

@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { useAuthStore } from '../store/authStore';
 import { API_BASE_URL } from './config';
+import { isTokenExpired } from '../utils/session';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -65,7 +66,7 @@ api.interceptors.response.use(
 
       const refreshToken = useAuthStore.getState().refreshToken;
 
-      if (!refreshToken) {
+      if (!refreshToken || isTokenExpired(refreshToken)) {
         useAuthStore.getState().logout();
         return Promise.reject(error);
       }

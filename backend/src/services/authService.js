@@ -5,6 +5,7 @@ const {
   generateAccessToken,
   generateRefreshToken,
   verifyRefreshToken,
+  getRefreshTokenExpiryDate,
 } = require('../utils/jwt');
 const AppError = require('../utils/AppError');
 const ERROR_CODES = require('../constants/errorCodes');
@@ -131,9 +132,7 @@ const _issueTokens = async (user) => {
 
   const accessToken = generateAccessToken(payload);
   const refreshToken = generateRefreshToken(payload);
-
-  const expiresAt = new Date();
-  expiresAt.setDate(expiresAt.getDate() + 7); // 7 days
+  const expiresAt = getRefreshTokenExpiryDate();
 
   await userRepository.addRefreshToken(user._id, {
     token: refreshToken,
