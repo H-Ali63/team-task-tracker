@@ -58,10 +58,7 @@ const listTasks = async (query, requestingUser) => {
 
   // Build cache key from filter + pagination
   const queryHash = buildQueryHash({ filter, page, limit, sortBy, sortOrder });
-  const cacheKey =
-    requestingUser.role === ROLES.MEMBER
-      ? CacheKeys.tasksByAssignee(requestingUser.organizationId.toString(), requestingUser._id.toString())
-      : CacheKeys.tasksByOrg(requestingUser.organizationId.toString(), queryHash);
+  const cacheKey = CacheKeys.tasksByOrg(requestingUser.organizationId.toString(), queryHash);
 
   // Try cache first
   const cached = await cacheService.get(cacheKey);
