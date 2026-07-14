@@ -89,6 +89,13 @@ CORS_ORIGINS=http://localhost:3000,https://team-task-trackers.vercel.app,https:/
 VITE_API_URL=https://team-task-tracker-xiue.onrender.com/api/v1
 ```
 
+Vercel project settings for this repo:
+
+- Root Directory: `frontend`
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Ensure `frontend/vercel.json` is included in the deployed commit so SPA rewrites work on refresh for routes like `/dashboard`, `/tasks`, and `/users`.
+
 ---
 
 ## Architecture Overview
