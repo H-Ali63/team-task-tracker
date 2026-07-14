@@ -47,7 +47,7 @@ const parseCorsOrigins = () => {
     .map(normalizeOrigin)
     .filter(Boolean);
 
-  return configuredOrigins.length > 0 ? configuredOrigins : DEFAULT_CORS_ORIGINS;
+  return Array.from(new Set([...DEFAULT_CORS_ORIGINS, ...configuredOrigins]));
 };
 
 const wildcardToRegExp = (originPattern) => {
@@ -92,6 +92,9 @@ const corsOptions = {
 
 const app = express();
 const server = http.createServer(app);
+
+// Required when running behind Render/other reverse proxies so rate-limit sees client IP correctly.
+app.set('trust proxy', 1);
 
 // ===== Socket.IO Setup =====
 const io = new Server(server, {
